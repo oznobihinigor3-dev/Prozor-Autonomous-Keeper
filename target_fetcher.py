@@ -1,4 +1,4 @@
-# C:\Prozor_AI\public_repo\target_fetcher.py
+# target_fetcher.py
 import requests
 import logging
 
@@ -11,12 +11,12 @@ class TargetFetcher:
         self.api_url = "https://api.kamino.finance/v2/market/REDACTED/obligations"
 
     def get_vulnerable_obligations(self):
-        """Прямой запрос к API с резервным пулом для Proof of Work."""
-        logger.info("[*] Запрос списка активных позиций через Off-Chain API...")
+        """Direct API request with fallback pool for Proof of Work generation."""
+        logger.info("[*] Requesting active positions via Off-Chain API...")
         targets = []
         
         try:
-            # Маскируемся под браузер
+            # Masquerading as a browser to bypass Cloudflare
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
             }
@@ -26,14 +26,14 @@ class TargetFetcher:
                 data = response.json()
                 targets = [o['obligationPubkey'] for o in data if 0.9 < o.get('healthFactor', 2.0) < 1.1]
             else:
-                logger.warning(f"[!] API отклонил запрос: код {response.status_code}")
+                logger.warning(f"[!] API rejected request: code {response.status_code}")
                 
         except Exception as e:
-            logger.warning(f"[!] Ошибка связи с API: {e}")
+            logger.warning(f"[!] API connection error: {e}")
 
-        # [АВАРИЙНЫЙ РЕЗЕРВ] Выдача системных адресов для тестов WSS-подписки
+        # [EMERGENCY FALLBACK] Injecting system addresses for WSS subscription testing
         if not targets:
-            logger.info("[*] Активация резервного пула адресов...")
+            logger.info("[*] Activating backup address pool...")
             targets = [
                 "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", 
                 "SysvarRent111111111111111111111111111111111"
