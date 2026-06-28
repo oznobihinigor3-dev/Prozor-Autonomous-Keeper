@@ -1,0 +1,12 @@
+[
+    {
+        "timestamp": "2026-06-27 13:29:40",
+        "solana_slot": 429308515,
+        "target_pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "health_factor": 1.0194,
+        "simulated_deposit_value_raw": 1050,
+        "simulated_borrow_value_raw": 1030,
+        "blockchain_vm_verdict": "TransactionErrorInstructionError((4, Tagged(InstructionErrorCustom(6001))))",
+        "architecture_version": "7.5-Hybrid"
+    }
+]
