@@ -26,7 +26,7 @@ This repository includes a cryptographically verifiable execution log (`simulati
     "health_factor": 1.0194,
     "blockchain_vm_verdict": "TransactionErrorInstructionError((4, Tagged(InstructionErrorCustom(6001))))",
     "architecture_version": "7.5-Hybrid"
-}```
+}
 Note: The 6001 (SlippageToleranceExceeded) verdict from the runtime proves the transaction bundle is correctly assembled and the capital-protection circuit is active.
 
 
