@@ -1,3 +1,4 @@
+# rpc_sniper.py
 
 import asyncio
 import websockets
@@ -43,7 +44,7 @@ class RPCSniper:
         self.nodes = [n for node in self.nodes if node for n in [node]]
         
         if not self.nodes:
-            logger.critical("[FATAL] Нет WSS ключей в .env")
+            logger.critical("[FATAL] No WSS keys found in .env")
             exit(1)
 
     def log_simulation_proof(self, target_pubkey, hf, deposit, borrow, verdict):
@@ -71,31 +72,31 @@ class RPCSniper:
         try:
             with open(PROOF_FILE, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4, ensure_ascii=False)
-            logger.info(f"[✓] Запись симуляции зафиксирована в {PROOF_FILE}")
+            logger.info(f"[✓] Simulation record saved to {PROOF_FILE}")
         except Exception as e:
-            logger.error(f"[!] Ошибка записи Proof of Work: {e}")
+            logger.error(f"[!] Error writing Proof of Work: {e}")
 
     async def connect(self):
         node_url = self.nodes[self.current_node_index]
         provider_name = "HELIUS" if "helius" in node_url else "QUICKNODE"
         
-        # Динамическое извлечение живых целей без нагрузки на железо
+        # Dynamic target extraction without hardware payload
         self.targets = self.fetcher.get_vulnerable_obligations()
         
         if not self.targets:
-            logger.warning("[!] Список целей пуст. Повторный запрос через 10 секунд...")
+            logger.warning("[!] Target list empty. Retrying in 10 seconds...")
             await asyncio.sleep(10)
             await self.switch_node()
             return
 
         await self.weapon.initialize()
         
-        logger.info(f"[*] Подключение к WSS-каналу {provider_name}...") 
+        logger.info(f"[*] Connecting to WSS channel {provider_name}...") 
         try:
             self.ws = await websockets.connect(node_url, ping_interval=None)
             self.is_blind = False
             self.last_slot_time = time.time() 
-            logger.info(f"[✓] Снайпер подключен к потоку блоков.")
+            logger.info(f"[✓] Sniper connected to block stream.")
             
             await self.subscribe_to_targets()
             
@@ -105,7 +106,7 @@ class RPCSniper:
             await asyncio.gather(listen_task, watchdog_task)
             
         except Exception as e:
-            logger.error(f"[!] Отказ узла {provider_name}: {e}")
+            logger.error(f"[!] Node failure {provider_name}: {e}")
             await self.switch_node()
 
     async def subscribe_to_targets(self):
@@ -120,7 +121,7 @@ class RPCSniper:
             
         slot_req = {"jsonrpc": "2.0", "id": "slot_sub", "method": "slotSubscribe"}
         await self.ws.send(json.dumps(slot_req))
-        logger.info(f"[✓] Мониторинг {len(self.targets)} аккаунтов Kamino успешно запущен.")
+        logger.info(f"[✓] Monitoring {len(self.targets)} Kamino accounts successfully started.")
 
     async def switch_node(self):
         self.is_blind = True
@@ -130,7 +131,7 @@ class RPCSniper:
             except Exception:
                 pass
         self.current_node_index = (self.current_node_index + 1) % len(self.nodes)
-        logger.warning(f"[RECONNECT] Переход на резервный узел #{self.current_node_index}")
+        logger.warning(f"[RECONNECT] Switching to backup node #{self.current_node_index}")
         await asyncio.sleep(2)
         await self.connect()
 
@@ -138,7 +139,7 @@ class RPCSniper:
         while not self.is_blind:
             await asyncio.sleep(1)
             if time.time() - self.last_slot_time > 5.0:
-                logger.critical("[Х] Лаг WSS канала превысил 5 секунд. Принудительный перезапуск.")
+                logger.critical("[Х] WSS channel lag exceeded 5 seconds. Forced restart.")
                 await self.switch_node()
                 break
 
@@ -154,36 +155,35 @@ class RPCSniper:
                         self.last_slot_time = time.time()
                         self.ping_counter += 1
                         if self.ping_counter % 10 == 0:
-                            logger.info(f"[~] Сеть онлайн. Текущий слот Solana: {self.last_slot}")
+                            logger.info(f"[~] Network online. Current Solana slot: {self.last_slot}")
                 
-                # Реальный триггер изменения данных на живых аккаунтах Kamino
+                # Real trigger for data changes on live Kamino accounts
                 elif data.get("method") == "accountNotification":
                     try:
-                        # Жесткая проверка структуры, чтобы отсечь мусор от балансировщика
+                        # Strict structure validation to bypass Helius load-balancer junk
                         params = data.get("params", {})
                         result = params.get("result", {})
                         value = result.get("value", {})
                         raw_data_array = value.get("data", [])
                         
                         if not raw_data_array or not isinstance(raw_data_array, list):
-                            continue # Пропускаем пустые пакеты
+                            continue 
                             
-                        pubkey = params.get("subscription", "UnknownTarget") # В WSS возвращается ID подписки, а не сам pubkey
+                        pubkey = params.get("subscription", "UnknownTarget") 
                         raw_data = raw_data_array[0]
                         
                         hf, dep, bor = self.decoder.parse_health_factor(raw_data)
                         
                         if hf is not None:
-                            logger.info(f"[*] Изменение состояния аккаунта. Расчетный Health Factor: {hf:.4f}")
+                            logger.info(f"[*] Account state changed. Calculated Health Factor: {hf:.4f}")
                             
-                            # Если позиция уязвима — мгновенно отправляем на симуляцию бандла
+                            # If position is vulnerable — immediately simulate the bundle
                             if hf < 1.05:
-                                logger.critical(f"[!!!] КРИТИЧЕСКАЯ ПОЗИЦИЯ: HF={hf:.4f}. Спуск курка Ядра.")
+                                logger.critical(f"[!!!] CRITICAL POSITION: HF={hf:.4f}. Pulling Core trigger.")
                                 verdict = await self.weapon.simulate_ghost_transaction()
                                 self.log_simulation_proof(pubkey, hf, dep, bor, verdict)
                                 
-                    except Exception as e:
-                        # Игнорируем мусорные пакеты, консоль остается чистой
+                    except Exception:
                         pass
                         
         except websockets.exceptions.ConnectionClosed:
@@ -195,4 +195,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(sniper.connect())
     except KeyboardInterrupt:
-        logger.info("[*] Система остановлена пользователем.")
+        logger.info("[*] System stopped by user.")
